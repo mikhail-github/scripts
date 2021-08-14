@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+##################################
+# Just a Terraform update script #
+##################################
+
+TERRAFORM_BINARY="/usr/local/bin"
+
+show_current_version(){
+  terraform version
+}
+
+get_latest_version() {
+  OUTPUT=$(terraform version)
+  if [ ! $(echo "$OUTPUT" | grep "Your version of Terraform is out of date!") ] ;
+  then
+    echo "latest"
+    exit 0
+  fi
+  echo $(echo "$OUTPUT" | grep -oP '(?<=is )\d{1,3}\.\d{1,3}\.\d{1,3}(?=\.\sYou can update by downloading from)')
+}
+
+update() {
+  echo "Updating to version $1"
+  TMPFILE=$(mktemp /tmp/terraform.XXXXXX)
+  curl --progress-bar \
+    --output "$TMPFILE" \
+  "https://releases.hashicorp.com/terraform/$1/terraform_$1_linux_amd64.zip"
+  unzip -o -q "$TMPFILE" -d /tmp
+  rm "$TMPFILE"
+  sudo mv /tmp/terraform "$TERRAFORM_BINARY"
+  echo "Terraform update complete"
+}
+
+update_to_latest() {
+  VERSION=$(get_latest_version)
+  if [ "$VERSION" == "latest" ];
+  then
+    echo "The latest version is already installed"
+  else
+    update "$VERSION"
+  fi
+}
+
+case $1 in
+"") show_current_version ;;
+"latest") update_to_latest ;;
+*) update "$1" ;;
+esac
